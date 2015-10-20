@@ -29,3 +29,8 @@ gasfile: gasfile.C
 	$(CXX) -o gasfile gasfile.o $(LDFLAGS)
 	rm gasfile.o
 
+gas_properties: gas_properties.C 
+	$(CXX) $(CFLAGS) gas_properties.C
+	$(CXX) -o gas_properties gas_properties.o $(LDFLAGS)
+	rm gas_properties.o
+
