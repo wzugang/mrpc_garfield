@@ -32,6 +32,7 @@ const int NUM_GASES = 2;
 TH1 *h_primaries[NUM_GASES];
 TGraph* g_townsend[NUM_GASES];    // townsend coefficient
 TGraph* g_attachment[NUM_GASES];  // attachment coefficient
+TGraph* g_effective[NUM_GASES];   // effective gain coefficient
 TGraph* g_drift[NUM_GASES];       // drift velocity
 
 int main(int argc, char *argv[]) {
@@ -75,11 +76,9 @@ int main(int argc, char *argv[]) {
 
     // Make histograms
     name = "h_primaries"; name += igas;
-    h_primaries[igas] = new TH1F(name,title,10,0,10);
+    h_primaries[igas] = new TH1F(name,title,31,-0.5,30.5);
     h_primaries[igas]->SetLineColor(igas+2);
     h_primaries[igas]->SetXTitle("num primaries");
-
-
 
     // Retrieve the points at which the Townsend coefficient was computed
     std::vector<double> efields,  bfields, angles;
@@ -89,9 +88,10 @@ int main(int argc, char *argv[]) {
     double e[100];
     double alpha[100];
     double attach[100];
+    double effective[100];
     double drift[100];
     // Retrieve the Townsend coefficient and prepare plot vectors
-    for (int i=0; i < efields.size(); i++) {
+    for (unsigned long i=0; i < efields.size(); i++) {
       e[i] = efields[i];
 
       double logalpha;
@@ -101,6 +101,8 @@ int main(int argc, char *argv[]) {
       double logattach;
       gas->GetElectronAttachment(i, 0, 0, logattach);
       attach[i] = exp(logattach);
+
+      effective[i] = alpha[i] - attach[i];
 
       double tempdrift;
       gas->GetElectronVelocityE(i, 0, 0, tempdrift);
@@ -117,12 +119,20 @@ int main(int argc, char *argv[]) {
     g_townsend[igas]->SetName(name);
     g_townsend[igas]->SetLineColor(igas+1);
     g_townsend[igas]->SetMarkerColor(igas+1);
+    g_townsend[igas]->SetLineStyle(2);
 
     name = "g_attachment"; name += igas;
     g_attachment[igas] = new TGraph(efields.size(), e, attach);
     g_attachment[igas]->SetName(name);
     g_attachment[igas]->SetLineColor(igas+1);
     g_attachment[igas]->SetMarkerColor(igas+1);
+    g_attachment[igas]->SetLineStyle(9);
+
+    name = "g_effective"; name += igas;
+    g_effective[igas] = new TGraph(efields.size(), e, effective);
+    g_effective[igas]->SetName(name);
+    g_effective[igas]->SetLineColor(igas+1);
+    g_effective[igas]->SetMarkerColor(igas+1);
 
     name = "g_drift"; name += igas;
     g_drift[igas] = new TGraph(efields.size(), e, drift);
@@ -206,7 +216,7 @@ int main(int argc, char *argv[]) {
       }
 
       h_primaries[igas]->Fill(nsum);
-      cout << "Found all tracks " << nsum << endl;
+      //cout << "Found all tracks " << nsum << endl;
     }
 
     delete tube;
@@ -220,18 +230,60 @@ int main(int argc, char *argv[]) {
   g_townsend[0]->GetHistogram()->SetYTitle("Townsend/Attachment Coeffs (1/cm)");
   g_townsend[0]->GetHistogram()->SetXTitle("E-field (V/cm)");
   g_attachment[0]->Draw("lp");
-  g_townsend[1]->Draw("lp");
-  g_attachment[1]->Draw("lp");
+  g_effective[0]->Draw("lp");
+  for (int igas=1; igas<NUM_GASES; igas++)
+  {
+    g_townsend[igas]->Draw("lp");
+    g_attachment[igas]->Draw("lp");
+    g_effective[igas]->Draw("lp");
+  }
+  // Get Maximum of all plots
+  /*
+  Double_t gain_max = -1e9;
+  Double_t gain_min = 1e9;
+  cout << "maxmin " << gain_max << "\t" << gain_min << endl;
+  for (int igas=0; igas<NUM_GASES; igas++)
+  {
+    if ( g_townsend[igas]->GetMaximum() > gain_max ) gain_max = g_townsend[igas]->GetMaximum();
+    if ( g_attachment[igas]->GetMaximum() > gain_max ) gain_max = g_attachment[igas]->GetMaximum();
+    if ( g_effective[igas]->GetMaximum() > gain_max ) gain_max = g_effective[igas]->GetMaximum();
+    if ( g_townsend[igas]->GetMinimum() < gain_min ) gain_min = g_townsend[igas]->GetMinimum();
+    if ( g_attachment[igas]->GetMinimum() < gain_min ) gain_min = g_attachment[igas]->GetMinimum();
+    if ( g_effective[igas]->GetMinimum() < gain_min ) gain_min = g_effective[igas]->GetMinimum();
+  cout << "maxmin " << gain_max << "\t" << gain_min << endl;
+  }
+  g_townsend[0]->SetMaximum( gain_max + fabs(gain_max*0.1) );
+  g_townsend[0]->SetMinimum( gain_min - fabs(gain_min*0.1) );
+  cout << "maxmin " << gain_max << "\t" << gain_min << endl;
+  */
+  g_townsend[0]->SetMaximum( 10000. );
+  g_townsend[0]->SetMinimum( -10000. );
+  gPad->Modified();
+  gPad->Update();
+  c_properties->SaveAs("c_properties.png");
 
   TCanvas *c_drift = new TCanvas("c_drift","drift",550,425);
   g_drift[0]->Draw("alp");
-  g_drift[1]->Draw("lp");
+  g_drift[0]->GetHistogram()->SetXTitle("E-field (V/cm)");
+  for (int igas=1; igas<NUM_GASES; igas++)
+  {
+    g_drift[igas]->Draw("lp");
+  }
+  c_drift->SaveAs("c_drift.png");
 
   TCanvas *c_primaries = new TCanvas("c_primaries","primary electrons",550,425);
-  h_primaries[0]->Draw();
-  for (int igas=1; igas<NUM_GASES; igas++) {
-    h_primaries[igas]->Draw("same");
+  for (int igas=0; igas<NUM_GASES; igas++)
+  {
+    Double_t nevents = h_primaries[igas]->GetEntries();
+    h_primaries[igas]->Sumw2();
+    h_primaries[igas]->Scale(1.0/nevents);
   }
+  h_primaries[0]->GetXaxis()->SetRangeUser(0,10);
+  h_primaries[0]->Draw("ehist");
+  for (int igas=1; igas<NUM_GASES; igas++) {
+    h_primaries[igas]->Draw("ehistsame");
+  }
+  c_primaries->SaveAs("c_primaries.png");
 
   savefile->Write();
   //savefile->Close();
